@@ -73,11 +73,16 @@ ${DEFAULT_ALIAS}"""
                         throw new InvalidUserDataException("No dependency for integrity assertion found: " + group + ":" + name)
                     }
 
-                    String tempDir = File.createTempDir("gradle-jarsigner", "tmp")
-                    String command = craftKeystoreCreationCommand(certificatePath, tempDir)
-                    shellOut(command)
-                    command = craftJarsignerVerifyCommand(tempDir, dependency.file)
-                    shellOut(command)
+                    def tempDir = File.createTempDir("gradle-jarsigner", "tmp")
+                    try {
+                        String tempDirPath = tempDir.toString()
+                        String command = craftKeystoreCreationCommand(certificatePath, tempDirPath)
+                        shellOut(command)
+                        command = craftJarsignerVerifyCommand(tempDirPath, dependency.file)
+                        shellOut(command)
+                    } finally {
+                        tempDir.deleteDir()
+                    }
             }
         }
     }
