@@ -22,10 +22,10 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
         def proc = command.execute()
         OutputStream stdin = proc.getOutputStream();
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdin));
-        // TODO Make pass random
-        writer.write("nonimportantpass\n");
+        def password = Utils.generateRandomPassword(32)
+        writer.write("${password}\n");
         writer.flush();
-        writer.write("nonimportantpass\n");
+        writer.write("${password}\n");
         writer.flush();
         writer.close();
         proc.consumeProcessOutput(sout, serr)
