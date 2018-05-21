@@ -35,20 +35,25 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
         // Password is not needed to read the certificates
         def password = Utils.generateRandomPassword(32)
         certificatePathPerAlias.each { alias, certificatePath ->
-            String command = craftKeystoreCreationCommand(keystoreFolder, certificatePath, alias)
+            def command = craftKeystoreCreationCommand(keystoreFolder, certificatePath, alias)
             def processData = Utils.shellOut(command, [password, password])
-            if (processData.exitCode != 0) {
-                throw new InvalidUserDataException("Cannot insert certificate ${certificatePath}. out> $stdOut err> $stdErr")
+            processData.with {
+                if (exitCode != 0) {
+                    throw new InvalidUserDataException("Cannot insert certificate ${certificatePath}. out> $stdOut err> $stdErr")
+                }
             }
         }
     }
 
     static craftKeystoreCreationCommand(keystoreFolder, certificatePath, certificateAlias) {
         String keystorePath = getKeyStorePath(keystoreFolder)
-        return """keytool -importcert -v -noprompt \
--file ${certificatePath} \
--alias ${certificateAlias} \
--keystore ${keystorePath}"""
+        return [
+            "keytool", "-importcert", "-v", // There is no -verbose option
+            "-noprompt", // -noprompt doesn't ask to trust this cert
+            "-file", certificatePath,
+            "-alias", certificateAlias,
+            "-keystore", keystorePath,
+        ]
     }
 
     static getKeyStorePath(keystoreFolder) {
@@ -78,7 +83,7 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
         }
 
         verifyJar(keystoreFolder, dependency.file, certificateAlias)
-        println "Signature of ${group}:${name} verified against certificate alias '${certificateAlias}'"
+        println "Signature of ${group}:${name} succesfully verified against certificate alias '${certificateAlias}'"
     }
 
     static verifyJar(keystoreFolder, jarFile, certificateAlias) {
@@ -97,10 +102,10 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
 
     static craftJarsignerVerifyCommand(keystoreFolder, dependencyPath, certificateAlias) {
         String keystorePath = getKeyStorePath(keystoreFolder)
-        // -strict enforces the alias to match
-        return """jarsigner -verify -strict -verbose \
--keystore ${keystorePath} \
-${dependencyPath} \
-${certificateAlias}"""
+        return [
+            "jarsigner", "-verbose", "-verify", "-strict", // -strict enforces the alias to match
+            "-keystore", keystorePath,
+            dependencyPath, certificateAlias
+        ]
     }
 }

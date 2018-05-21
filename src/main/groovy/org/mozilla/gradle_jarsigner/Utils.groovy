@@ -10,7 +10,8 @@ class Utils {
         }
     }
 
-    static shellOut(command, stdinParams=[]) {
+    // shellOut doesn't allow strings commands to safeguard against spaces
+    static shellOut(List command, stdinParams=[]) {
         def sout = new StringBuilder(), serr = new StringBuilder()
         log.debug "Running command: ${command}"
         def proc = command.execute()
@@ -30,8 +31,8 @@ class Utils {
 
         return [
             exitCode: proc.exitValue(),
-            stdOut: sout,
-            stdErr: serr,
+            stdOut: sout.toString(),
+            stdErr: serr.toString(),
         ]
     }
 }
