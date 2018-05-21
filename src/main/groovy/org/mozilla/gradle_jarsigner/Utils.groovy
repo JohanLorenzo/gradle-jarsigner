@@ -1,3 +1,6 @@
+package org.mozilla.gradle_jarsigner
+
+@groovy.util.logging.Commons
 class Utils {
     static String ALPHABET = (('A'..'Z')+('a'..'z')+('0'..'9')).join()
 
@@ -9,7 +12,7 @@ class Utils {
 
     static shellOut(command, stdinParams=[]) {
         def sout = new StringBuilder(), serr = new StringBuilder()
-        println "Running command: ${command}"
+        log.debug "Running command: ${command}"
         def proc = command.execute()
 
         if (!stdinParams.empty) {

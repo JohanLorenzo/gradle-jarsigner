@@ -13,6 +13,7 @@ class JarSignerVerifyPluginExtension {
     Map certificates
 }
 
+@groovy.util.logging.Commons
 class JarSignerVerifyPlugin implements Plugin<Project> {
 
     void apply(Project project) {
@@ -31,6 +32,7 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
     }
 
     static populateKeystore(keystoreFolder, certificatePathPerAlias) {
+        // Password is not needed to read the certificates
         def password = Utils.generateRandomPassword(32)
         certificatePathPerAlias.each { alias, certificatePath ->
             String command = craftKeystoreCreationCommand(keystoreFolder, certificatePath, alias)
@@ -65,17 +67,18 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
         String name  = parts.get(1)
         String certificateAlias = parts.get(2)
 
+        log.debug "Verifying the signature of ${group}:${name} against certificate alias '${certificateAlias}'..."
+
         ResolvedArtifact dependency = project.configurations.compile.resolvedConfiguration.resolvedArtifacts.find {
             return it.name.equals(name) && it.moduleVersion.id.group.equals(group)
         }
-
-        println "Verifying the signature of ${group}:${name} against certificate alias '${certificateAlias}'"
 
         if (dependency == null) {
             throw new InvalidUserDataException("No dependency for integrity assertion found: ${group}:${name}")
         }
 
         verifyJar(keystoreFolder, dependency.file, certificateAlias)
+        println "Signature of ${group}:${name} verified against certificate alias '${certificateAlias}'"
     }
 
     static verifyJar(keystoreFolder, jarFile, certificateAlias) {
