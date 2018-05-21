@@ -36,10 +36,20 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
 
     static craftJarsignerVerifyCommand(keystoreFolder, dependencyPath) {
         String keystorePath = getKeyStorePath(keystoreFolder)
-        return """jarsigner -verify -verbose \
+        // -strict enforces the alias to match
+        return """jarsigner -verify -strict -verbose \
 -keystore ${keystorePath} \
 ${dependencyPath} \
 ${DEFAULT_ALIAS}"""
+    }
+
+    static verifyJar(keystoreFolder, jarFile) {
+        def command = craftJarsignerVerifyCommand(keystoreFolder, jarFile)
+        def exitCode = Utils.shellOut(command)
+
+        if (exitCode != 0) {
+            throw new InvalidUserDataException("Wrong signature found on: ${jarFile}")
+        }
     }
 
     void apply(Project project) {
@@ -59,15 +69,14 @@ ${DEFAULT_ALIAS}"""
                     println "Verifying the signature of ${group}:${name} against certificate '${certificatePath}'"
 
                     if (dependency == null) {
-                        throw new InvalidUserDataException("No dependency for integrity assertion found: " + group + ":" + name)
+                        throw new InvalidUserDataException("No dependency for integrity assertion found: ${group}:${name}")
                     }
 
                     def tempDir = File.createTempDir("gradle-jarsigner", "tmp")
                     try {
                         String tempDirPath = tempDir.toString()
                         populateKeystore(certificatePath, tempDirPath)
-                        def command = craftJarsignerVerifyCommand(tempDirPath, dependency.file)
-                        Utils.shellOut(command)
+                        verifyJar(tempDirPath, dependency.file)
                     } finally {
                         tempDir.deleteDir()
                     }
