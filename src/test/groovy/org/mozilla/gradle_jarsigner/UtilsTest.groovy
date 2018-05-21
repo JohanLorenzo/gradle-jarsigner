@@ -42,15 +42,4 @@ class UtilsTest extends Specification {
         processData.stdOut == ""
         processData.stdErr == "cat: non_existing-file: No such file or directory\n"
     }
-
-    def "shellOut() safeguard spaces"() {
-        when:
-        def processData = Utils.shellOut(["cat", "some file"])
-
-        then:
-        processData.exitCode == 1
-        processData.stdOut == ""
-        processData.stdErr == "cat: 'some file': No such file or directory\n"
-    }
-
 }

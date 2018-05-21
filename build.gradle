@@ -13,5 +13,12 @@ dependencies {
     }
 }
 
+test {
+    testLogging {
+        events "failed"
+        exceptionFormat "full"
+    }
+}
+
 sourceCompatibility = '1.7'
 targetCompatibility = '1.7'
