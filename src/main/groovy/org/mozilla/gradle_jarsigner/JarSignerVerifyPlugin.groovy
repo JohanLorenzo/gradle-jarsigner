@@ -45,10 +45,15 @@ ${DEFAULT_ALIAS}"""
 
     static verifyJar(keystoreFolder, jarFile) {
         def command = craftJarsignerVerifyCommand(keystoreFolder, jarFile)
-        def exitCode = Utils.shellOut(command)
+        def processData = Utils.shellOut(command)
 
-        if (exitCode != 0) {
-            throw new InvalidUserDataException("Wrong signature found on: ${jarFile}")
+        processData.with {
+            if (exitCode != 0) {
+                throw new InvalidUserDataException("Wrong signature found on ${jarFile}. out> $stdOut err> $stdErr")
+            }
+            if (stdOut.contains("jar is unsigned") || stdOut.contains("no manifest")) {
+                throw new InvalidUserDataException("Unsigned jar: ${jarFile}")
+            }
         }
     }
 

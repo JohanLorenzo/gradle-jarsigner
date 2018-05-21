@@ -24,8 +24,11 @@ class Utils {
 
         proc.consumeProcessOutput(sout, serr)
         proc.waitForOrKill(10000)
-        println "out> $sout err> $serr"
 
-        return proc.exitValue()
+        return [
+            exitCode: proc.exitValue(),
+            stdOut: sout,
+            stdErr: serr,
+        ]
     }
 }
