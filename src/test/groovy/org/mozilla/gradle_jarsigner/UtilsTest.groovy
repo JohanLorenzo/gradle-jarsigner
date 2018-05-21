@@ -2,6 +2,8 @@ package org.mozilla.gradle_jarsigner
 
 import spock.lang.Specification
 
+import java.nio.file.Paths
+
 class UtilsTest extends Specification {
 
     def "generateRandomPassword() generates unique enough strings"() {
@@ -41,5 +43,30 @@ class UtilsTest extends Specification {
         processData.exitCode == 1
         processData.stdOut == ""
         processData.stdErr == "cat: non_existing-file: No such file or directory\n"
+    }
+
+    def "shellOut() allows stdinParams"() {
+        when:
+        def tempDir = File.createTempDir()
+        def keystorePath = Paths.get(tempDir.toString(), "keystore")
+        def processData = Utils.shellOut(["keytool", "-genkey", "-keystore", keystorePath], [
+            'somepassword',
+            'somepassword',
+            'Some Name',
+            'Some Org Unit',
+            'Some Org',
+            'Some City',
+            'Some State',
+            'US',
+            'yes',
+            'somepassword',
+        ])
+
+        then:
+        processData.exitCode == 0
+        processData.stdOut == ""
+        processData.stdErr.contains("Is CN=Some Name, OU=Some Org Unit, O=Some Org, L=Some City, ST=Some State, C=US correct?")
+        cleanup:
+        tempDir.deleteDir()
     }
 }
