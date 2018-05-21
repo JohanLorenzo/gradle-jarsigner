@@ -16,21 +16,10 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
 
     static String DEFAULT_ALIAS = 'non-important-alias'
 
-    static shellOut(command) {
-        def sout = new StringBuilder(), serr = new StringBuilder()
-        println "Running command: ${command}"
-        def proc = command.execute()
-        OutputStream stdin = proc.getOutputStream();
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdin));
+    static populateKeystore(certificatePath, tempDirPath) {
+        String command = craftKeystoreCreationCommand(certificatePath, tempDirPath)
         def password = Utils.generateRandomPassword(32)
-        writer.write("${password}\n");
-        writer.flush();
-        writer.write("${password}\n");
-        writer.flush();
-        writer.close();
-        proc.consumeProcessOutput(sout, serr)
-        proc.waitForOrKill(10000)
-        println "out> $sout err> $serr"
+        Utils.shellOut(command, [password, password])
     }
 
     static getKeyStorePath(keystoreFolder) {
@@ -76,10 +65,9 @@ ${DEFAULT_ALIAS}"""
                     def tempDir = File.createTempDir("gradle-jarsigner", "tmp")
                     try {
                         String tempDirPath = tempDir.toString()
-                        String command = craftKeystoreCreationCommand(certificatePath, tempDirPath)
-                        shellOut(command)
-                        command = craftJarsignerVerifyCommand(tempDirPath, dependency.file)
-                        shellOut(command)
+                        populateKeystore(certificatePath, tempDirPath)
+                        def command = craftJarsignerVerifyCommand(tempDirPath, dependency.file)
+                        Utils.shellOut(command)
                     } finally {
                         tempDir.deleteDir()
                     }
