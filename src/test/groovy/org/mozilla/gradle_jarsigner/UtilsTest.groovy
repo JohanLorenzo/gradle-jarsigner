@@ -27,22 +27,22 @@ class UtilsTest extends Specification {
 
     def "shellOut() outputs stdOut"() {
         when:
-        def processData = Utils.shellOut(["echo", "hello world"])
+        def processData = Utils.shellOut(["echo", "hello world", "!"])
 
         then:
         processData.exitCode == 0
-        processData.stdOut == "hello world\n"
+        processData.stdOut == "hello world !\n"
         processData.stdErr == ""
     }
 
-    def "shellOut() outputs stdErr"() {
+    def "shellOut() returns bad error code"() {
         when:
-        def processData = Utils.shellOut(["cat", "non_existing-file"])
+        def processData = Utils.shellOut(["false"])
 
         then:
         processData.exitCode == 1
         processData.stdOut == ""
-        processData.stdErr == "cat: non_existing-file: No such file or directory\n"
+        processData.stdErr == ""
     }
 
     def "shellOut() allows stdinParams"() {
