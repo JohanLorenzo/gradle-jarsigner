@@ -10,26 +10,32 @@ class JarSignerVerifyPluginExtension {
     Map certificates
 }
 
-@groovy.util.logging.Commons
 class JarSignerVerifyPlugin implements Plugin<Project> {
 
     void apply(Project project) {
         project.extensions.create("signatureVerification", JarSignerVerifyPluginExtension)
         project.afterEvaluate {
-            def tempDir = File.createTempDir("gradle-jarsigner", "tmp")
-            String tempDirPath = tempDir.toString()
-            def keystorePath = Paths.get(tempDirPath, "keystore")
+            setUpAndVerifyDependencies(
+                project.configurations.compile.resolvedConfiguration.resolvedArtifacts,
+                project.signatureVerification
+            )
+        }
+    }
 
-            try {
-                Keystore.populate(keystorePath, project.signatureVerification.certificates)
-                Verification.verifyDependencies(
-                    keystorePath,
-                    project.configurations.compile.resolvedConfiguration.resolvedArtifacts,
-                    project.signatureVerification.dependencies
-                )
-            } finally {
-                tempDir.deleteDir()
-            }
+    private static setUpAndVerifyDependencies(resolvedArtifacts, signatureVerification) {
+        def tempDir = File.createTempDir("gradle-jarsigner", "tmp")
+        String tempDirPath = tempDir.toString()
+        def keystorePath = Paths.get(tempDirPath, "keystore")
+
+        try {
+            Keystore.populate(keystorePath, signatureVerification.certificates)
+            Verification.verifyDependencies(
+                keystorePath,
+                resolvedArtifacts,
+                signatureVerification.dependencies
+            )
+        } finally {
+            tempDir.deleteDir()
         }
     }
 }

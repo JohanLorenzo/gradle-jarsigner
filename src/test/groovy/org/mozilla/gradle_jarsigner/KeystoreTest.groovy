@@ -1,6 +1,5 @@
 package org.mozilla.gradle_jarsigner
 
-import groovy.mock.interceptor.MockFor
 import spock.lang.Specification
 
 class KeystoreTest extends Specification {
