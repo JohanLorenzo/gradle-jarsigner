@@ -11,7 +11,7 @@ class Utils {
     }
 
     // shellOut doesn't allow strings commands to safeguard against spaces
-    static shellOut(List command, stdinParams=[]) {
+    static shellOut(List command, List stdinParams=[]) {
         def sout = new StringBuilder(), serr = new StringBuilder()
         log.debug "Running command: ${command}"
         def proc = command.execute()

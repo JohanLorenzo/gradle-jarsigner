@@ -21,52 +21,25 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
         project.afterEvaluate {
             def tempDir = File.createTempDir("gradle-jarsigner", "tmp")
             String tempDirPath = tempDir.toString()
+            def keystorePath = Paths.get(tempDirPath, "keystore")
 
             try {
-                populateKeystore(tempDirPath, project.signatureVerification.certificates)
-                verifyDependencies(project, tempDirPath, project.signatureVerification.dependencies)
+                Keystore.populate(keystorePath, project.signatureVerification.certificates)
+                verifyDependencies(project, keystorePath, project.signatureVerification.dependencies)
             } finally {
                 tempDir.deleteDir()
             }
         }
     }
 
-    static populateKeystore(keystoreFolder, certificatePathPerAlias) {
-        // Password is not needed to read the certificates
-        def password = Utils.generateRandomPassword(32)
-        certificatePathPerAlias.each { alias, certificatePath ->
-            def command = craftKeystoreCreationCommand(keystoreFolder, certificatePath, alias)
-            def processData = Utils.shellOut(command, [password, password])
-            processData.with {
-                if (exitCode != 0) {
-                    throw new InvalidUserDataException("Cannot insert certificate ${certificatePath}. out> $stdOut err> $stdErr")
-                }
-            }
-        }
-    }
 
-    static craftKeystoreCreationCommand(keystoreFolder, certificatePath, certificateAlias) {
-        String keystorePath = getKeyStorePath(keystoreFolder)
-        return [
-            "keytool", "-importcert", "-v", // There is no -verbose option
-            "-noprompt", // -noprompt doesn't ask to trust this cert
-            "-file", certificatePath,
-            "-alias", certificateAlias,
-            "-keystore", keystorePath,
-        ]
-    }
-
-    static getKeyStorePath(keystoreFolder) {
-        return Paths.get(keystoreFolder, "keystore")
-    }
-
-    static verifyDependencies(project, tempDirPath, dependencies) {
+    static verifyDependencies(project, keystorePath, dependencies) {
         dependencies.each { assertion ->
-            verifySingleDependency(project, tempDirPath, assertion)
+            verifySingleDependency(project, keystorePath, assertion)
         }
     }
 
-    static verifySingleDependency(project, keystoreFolder, assertion) {
+    static verifySingleDependency(project, keystorePath, assertion) {
         List  parts  = assertion.tokenize(":")
         String group = parts.get(0)
         String name  = parts.get(1)
@@ -82,12 +55,12 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
             throw new InvalidUserDataException("No dependency for integrity assertion found: ${group}:${name}")
         }
 
-        verifyJar(keystoreFolder, dependency.file, certificateAlias)
+        verifyJar(keystorePath, dependency.file, certificateAlias)
         println "Signature of ${group}:${name} succesfully verified against certificate alias '${certificateAlias}'"
     }
 
-    static verifyJar(keystoreFolder, jarFile, certificateAlias) {
-        def command = craftJarsignerVerifyCommand(keystoreFolder, jarFile, certificateAlias)
+    static verifyJar(keystorePath, jarFile, certificateAlias) {
+        def command = craftJarsignerVerifyCommand(keystorePath, jarFile, certificateAlias)
         def processData = Utils.shellOut(command)
 
         processData.with {
@@ -100,8 +73,7 @@ class JarSignerVerifyPlugin implements Plugin<Project> {
         }
     }
 
-    static craftJarsignerVerifyCommand(keystoreFolder, dependencyPath, certificateAlias) {
-        String keystorePath = getKeyStorePath(keystoreFolder)
+    static craftJarsignerVerifyCommand(keystorePath, dependencyPath, certificateAlias) {
         return [
             "jarsigner", "-verbose", "-verify", "-strict", // -strict enforces the alias to match
             "-keystore", keystorePath,
