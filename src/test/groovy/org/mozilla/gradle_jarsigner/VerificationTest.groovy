@@ -2,6 +2,10 @@ package org.mozilla.gradle_jarsigner
 
 import org.gradle.api.InvalidUserDataException
 
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipEntry
+
 import spock.lang.Specification
 
 class VerificationTest extends Specification {
@@ -63,6 +67,8 @@ class VerificationTest extends Specification {
                 stdErr: "",
             ]
         }
+        GroovySpy(Verification, global: true)
+        Verification.verifyMetaInfFilesArePresent(_) >> {}
 
         when:
         Verification.verifyJar("/path/to/keystore", "/path/to/file.jar", "some-alias")
@@ -76,21 +82,71 @@ class VerificationTest extends Specification {
         setup:
         GroovyMock(Utils, global: true)
         Utils.shellOut(_) >> {_ -> [
-                exitCode: code,
-                stdOut: out,
+                exitCode: 32,   // Real error code given by jarsigner in this context
+                stdOut: "",
                 stdErr: "",
             ]
         }
+        GroovySpy(Verification, global: true)
+        Verification.verifyMetaInfFilesArePresent(_) >> {}
 
         when:
         Verification.verifyJar("/path/to/keystore", "/path/to/file.jar", "some-alias")
 
         then:
         thrown InvalidUserDataException
+    }
+
+    def "verifyMetaInfFilesArePresent() passes when all files are provided in jar file"() {
+        setup:
+        def zipFile = generateSimpleJarFile([
+            "META-INF/MANIFEST.MF": "Manifest-Version: 1.0",
+            "META-INF/ONEALIAS.SF": "Signature-Version: 1.0",
+        ])
+
+        when:
+        Verification.verifyMetaInfFilesArePresent(zipFile.toPath())
+
+        then:
+        true // Function under test should just run and not throw an erro
+
+        cleanup:
+        zipFile.delete()
+    }
+
+    static generateSimpleJarFile(Map entries) {
+        def zipFile = File.createTempFile("some", ".jar")
+        def out = new ZipOutputStream(new FileOutputStream(zipFile))
+
+        entries.each { String name, String content ->
+            def entry = new ZipEntry(name)
+            out.putNextEntry(entry)
+
+            byte[] data = content.getBytes()
+            out.write(data, 0, data.length)
+            out.closeEntry()
+        }
+        out.close()
+
+        return zipFile
+    }
+
+    def "verifyMetaInfFilesArePresent() throws error when some files are missing"() {
+        setup:
+        def zipFile = generateSimpleJarFile([zipEntryFileName: zipEntryContent])
+
+        when:
+        Verification.verifyMetaInfFilesArePresent(zipFile.toPath())
+
+        then:
+        thrown InvalidUserDataException
+
+        cleanup:
+        zipFile.delete()
 
         where:
-        code << [32, 0, 0]
-        out << ["jar verified, with signer errors", "jar is unsigned", "no manifest" ]
+        zipEntryFileName << ["META-INF/MANIFEST.MF", "META-INF/ONEALIAS.SF", "META-INF/SOMEALIA.SF"]
+        zipEntryContent << ["Manifest-Version: 1.0", "Signature-Version: 1.0", "Signature-Version: 1.0"]
     }
 
     def "craftJarsignerVerifyCommand() generates command line"() {
