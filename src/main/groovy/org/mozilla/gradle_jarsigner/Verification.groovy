@@ -1,5 +1,7 @@
 package org.mozilla.gradle_jarsigner
 
+import java.util.zip.ZipFile
+
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.artifacts.ResolvedArtifact
 
@@ -33,23 +35,42 @@ class Verification {
         println "Signature of ${group}:${name} succesfully verified against certificate alias '${certificateAlias}'"
     }
 
-    private static verifyJar(keystorePath, jarFile, certificateAlias) {
-        def command = craftJarsignerVerifyCommand(keystorePath, jarFile, certificateAlias)
+    private static verifyJar(keystorePath, jarPath, certificateAlias) {
+        // XXX In the case there is no manifest, jarsigner returns 0 even even though the jar is unsigned.
+        // That's why we have to manually ensure the manifest exists
+        verifyMetaInfFilesArePresent(jarPath)
+
+        def command = craftJarsignerVerifyCommand(keystorePath, jarPath, certificateAlias)
         def processData = Utils.shellOut(command)
 
         processData.with {
             if (exitCode != 0) {
-                throw new InvalidUserDataException("Wrong signature found on ${jarFile}. out> $stdOut err> $stdErr")
+                throw new InvalidUserDataException("Wrong signature found on ${jarFile}. out> ${stdOut} err> ${stdErr}")
             }
-            if (stdOut.contains("jar is unsigned") || stdOut.contains("no manifest")) {
-                throw new InvalidUserDataException("Unsigned jar: ${jarFile}")
-            }
+        }
+    }
+
+    private static verifyMetaInfFilesArePresent(jarPath) {
+        def jarFileLocation = jarPath.toString()
+        def zipFile = new ZipFile(new File(jarFileLocation))
+
+        def manifest = zipFile.entries().find { it.name == "META-INF/MANIFEST.MF" }
+        if (manifest == null) {
+            throw new InvalidUserDataException("Missing \"META-INF/MANIFEST.MF\" in jar: ${jarFileLocation}")
+        }
+
+        def signatureFile = zipFile.entries().find { it.name.startsWith("META-INF/") && it.name.endsWith(".SF") }
+        if (signatureFile == null) {
+            throw new InvalidUserDataException("Missing signature file in jar: ${jarFileLocation}")
         }
     }
 
     private static craftJarsignerVerifyCommand(keystorePath, dependencyPath, certificateAlias) {
         return [
-            "jarsigner", "-verbose", "-verify", "-strict", // -strict enforces the alias to match
+            "jarsigner", "-verbose", "-verify",
+            // -strict raises warnings as errors (and changes the exit code).
+            // For instance, it enforces the alias to match
+            "-strict",
             "-keystore", keystorePath,
             dependencyPath, certificateAlias
         ]
